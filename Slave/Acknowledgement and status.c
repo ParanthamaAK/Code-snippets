@@ -29,7 +29,8 @@ void loop() {
         // Continue with data reception and processing
         for(int i=0; i<3; i++){
 			receiveAndProcessData();
-    }	}
+    }	
+  }
 }
 
 // Data reception and processing

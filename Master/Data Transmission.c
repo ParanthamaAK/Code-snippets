@@ -4,7 +4,7 @@
 
 // Define the addresses and data payloads
 char esp32_addresses[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
-char data_payloads[5] = {0xF1, 0xAA, 0xFF, 0x00, 0xBC};
+char data_payloads[5] = {0xFF, 0xAA, 0xFF, 0x00, 0xBC};
 
 // Function to send data to devices
 void sendDataToDevices(int uart_fd) {

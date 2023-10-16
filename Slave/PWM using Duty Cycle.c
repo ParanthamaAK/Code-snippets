@@ -16,9 +16,9 @@ void setup() {
   Serial.begin(115200);
 }
 
-void loop(){
+void loop() {
   int dutyCyclePercentage;
-  while(!Serial.available()){
+  while(!Serial.available()) {
   }
   
   dutyCyclePercentage = Serial.parseInt();
