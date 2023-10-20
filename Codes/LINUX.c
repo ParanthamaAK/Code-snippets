@@ -19,7 +19,7 @@ char esp32_addresses[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
 // Define the data payloads for each ESP32 device
 char data_payloads[5] = {0xF1, 0xAA, 0xFF, 0x00, 0xBC};
 
-// Function to configure the UART port (same as before)
+// Function to configure the UART port
 int configureUART(int fd) {
     struct termios uartConfig;
     if (tcgetattr(fd, &uartConfig) < 0) {
@@ -38,7 +38,7 @@ int configureUART(int fd) {
     uartConfig.c_cflag |= CS8;
 
     // Apply the configuration
-    if (tcsetattr(fd, TCS3NOW, &uartConfig) < 0) {
+    if (tcsetattr(fd, TCSANOW, &uartConfig) < 0) {
         perror("Error configuring UART");
         return -1;
     }
@@ -46,6 +46,16 @@ int configureUART(int fd) {
     return 0;
 }
 
+// Function to open the UART device
+int openUART() {
+    int uart_fd = open(UART_DEVICE, O_RDWR | O_NOCTTY);
+    if (uart_fd == -1) {
+        perror("Error opening UART");
+    }
+    return uart_fd;
+}
+
+// Function to check if a device is online
 bool checkDeviceOnline(int uart_fd, char address) {
     char requestBuffer[64];
     char responseBuffer[64];
@@ -79,8 +89,8 @@ bool checkDeviceOnline(int uart_fd, char address) {
     return false; // Device did not respond or is not online
 }
 
+// Function to send data to devices
 void sendDataToDevices(int uart_fd) {
-    // Send data to each ESP32 device separately
     for (int i = 0; i < 5; i++) {
         // Send the address byte
         if (write(uart_fd, &esp32_addresses[i], 1) == -1) {
@@ -98,13 +108,28 @@ void sendDataToDevices(int uart_fd) {
     }
 }
 
+// Function to handle incoming requests or data
+void handleIncomingData(int uart_fd) {
+    char requestBuffer[64];
+    int bytes;
+
+    bytes = read(uart_fd, requestBuffer, sizeof(requestBuffer));
+    if (bytes > 0) {
+        requestBuffer[bytes] = '\0';
+
+        // Handle incoming requests or data here
+        // ...
+    } else if (bytes == -1) {
+        perror("Error reading from UART");
+    }
+}
+
 int main() {
     int uart_fd;
 
     // Open the UART device
-    uart_fd = open(UART_DEVICE, O_RDWR | O_NOCTTY);
+    uart_fd = openUART();
     if (uart_fd == -1) {
-        perror("Error opening UART");
         return 1;
     }
 
@@ -116,21 +141,10 @@ int main() {
 
     // Main loop (you can adjust the timing as needed)
     while (1) {
-        char requestBuffer[64];
-        int bytes;
-
-        // Read incoming requests from ESP32 devices
-        bytes = read(uart_fd, requestBuffer, sizeof(requestBuffer));
-        if (bytes > 0) {
-            requestBuffer[bytes] = '\0';
-
-            // Handle incoming requests or data here
-            // ...
-
-        } else if (bytes == -1) {
-            perror("Error reading from UART");
-            break;
-        }
+        handleIncomingData(uart_fd);
     }
+
+    close(uart_fd);
+
+    return 0;
 }
-       

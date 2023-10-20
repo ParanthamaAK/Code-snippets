@@ -5,121 +5,128 @@
 #include <unistd.h>
 #include <termios.h>
 
-int assign_address();
-void poll_devices(int serial_fd);
-void send_data(int serial_fd, int address, int data);
+// Define the maximum number of available addresses
+#define MAX_AVAILABLE_ADDRESSES 5
 
-// Define a pool of available addresses
-static int address_pool[] = {1, 2, 3, 4, 5};
-static int num_available_addresses = sizeof(address_pool) / sizeof(int);
+// Data structure to store assigned addresses and device IDs
+struct AssignedAddress {
+    int address;
+    int device_id;
+};
 
-// Dictionary to map assigned addresses to devices
-static struct {
-  int address;
-  int device_id;
-} assigned_addresses[5];
+// Function to open and configure the serial port
+int setupSerialPort(const char *portName, speed_t baudRate) {
+    int serial_fd = open(portName, O_RDWR);
+    if (serial_fd == -1) {
+        perror("Error opening serial port");
+        exit(1);
+    }
+
+    struct termios tty;
+    memset(&tty, 0, sizeof(tty));
+    if (tcgetattr(serial_fd, &tty) != 0) {
+        perror("Error from tcgetattr");
+        exit(1);
+    }
+
+    cfsetospeed(&tty, baudRate);
+    cfsetispeed(&tty, baudRate);
+    tty.c_cflag |= (CLOCAL | CREAD);
+    tty.c_cflag &= ~PARENB;
+    tty.c_cflag &= ~CSTOPB;
+    tty.c_cflag &= ~CSIZE;
+    tty.c_cflag |= CS8;
+    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    tty.c_oflag &= ~OPOST;
+
+    if (tcsetattr(serial_fd, TCSANOW, &tty) != 0) {
+        perror("Error from tcsetattr");
+        exit(1);
+    }
+
+    return serial_fd;
+}
 
 // Function to assign an address to a new device
-int assign_address() {
-  if (num_available_addresses == 0) {
-    return -1;
-  }
+int assignAddress(int *addressPool, int *numAvailableAddresses) {
+    if (*numAvailableAddresses == 0) {
+        return -1;
+    }
 
-  int address = address_pool[0];
-  num_available_addresses--;
+    int address = addressPool[0];
+    (*numAvailableAddresses)--;
 
-  for (int i = 0; i < num_available_addresses; i++) {
-    address_pool[i] = address_pool[i + 1];
-  }
+    for (int i = 0; i < *numAvailableAddresses; i++) {
+        addressPool[i] = addressPool[i + 1];
+    }
 
-  return address;
+    return address;
 }
 
-// Polling logic
-void poll_devices(int serial_fd) {
-  // Iterate through the list of assigned addresses
-  for (int i = 0; i < num_available_addresses; i++) {
-    // Send a status request
-    char request[] = "REQ_STATUS\n";
-    int address = assigned_addresses[i].address;
-    write(serial_fd, request, strlen(request));
+// Function to poll devices and check their status
+void pollDevices(int serial_fd, struct AssignedAddress *assignedAddresses, int numAvailableAddresses) {
+    for (int i = 0; i < numAvailableAddresses; i++) {
+        // Send a status request
+        char request[] = "REQ_STATUS\n";
+        int address = assignedAddresses[i].address;
+        write(serial_fd, request, strlen(request));
 
-    // Read and process the response
-    char response[100];
-    read(serial_fd, response, sizeof(response));
-  }
+        // Read and process the response
+        char response[100];
+        read(serial_fd, response, sizeof(response));
+    }
 }
 
-// Data transmission
-void send_data(int serial_fd, int address, int data) {
-  unsigned char packet[2] = {address, data};
-  write(serial_fd, packet, sizeof(packet));
+// Function to send data to devices
+void sendData(int serial_fd, int address, int data) {
+    unsigned char packet[2] = {address, data};
+    write(serial_fd, packet, sizeof(packet));
 }
 
 int main() {
-  // Open the serial port
-  int serial_fd = open("/dev/ttyUSB0", O_RDWR);
-  if (serial_fd == -1) {
-    perror("Error opening serial port");
-    return 1;
-  }
+    // Open and configure the serial port
+    const char *portName = "/dev/ttyUSB0"; // Change to your port name
+    speed_t baudRate = B115200; // Change to your baud rate
+    int serial_fd = setupSerialPort(portName, baudRate);
 
-  // Set serial port settings (assuming 8N1)
-  struct termios tty;
-  memset(&tty, 0, sizeof(tty));
-  if (tcgetattr(serial_fd, &tty) != 0) {
-    perror("Error from tcgetattr");
-    return 1;
-  }
-  cfsetospeed(&tty, B115200);
-  cfsetispeed(&tty, B115200);
-  tty.c_cflag |= (CLOCAL | CREAD);
-  tty.c_cflag &= ~PARENB;
-  tty.c_cflag &= ~CSTOPB;
-  tty.c_cflag &= ~CSIZE;
-  tty.c_cflag |= CS8;
-  tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-  tty.c_iflag &= ~(IXON | IXOFF | IXANY);
-  tty.c_oflag &= ~OPOST;
-  if (tcsetattr(serial_fd, TCSANOW, &tty) != 0) {
-    perror("Error from tcsetattr");
-    return 1;
-  }
+    // Initialize the list of assigned addresses and device IDs
+    struct AssignedAddress assignedAddresses[MAX_AVAILABLE_ADDRESSES];
+    int addressPool[MAX_AVAILABLE_ADDRESSES] = {1, 2, 3, 4, 5};
+    int numAvailableAddresses = MAX_AVAILABLE_ADDRESSES;
 
-  // Address assignment logic for new devices
-  int new_address = assign_address();
-  while (new_address != -1) {
-    // Send a request for address and device identifier
-    char request[] = "REQ_ADDRESS\n";
-    write(serial_fd, request, strlen(request));
+    // Address assignment logic for new devices
+    int newAddress = assignAddress(addressPool, &numAvailableAddresses);
+    while (newAddress != -1) {
+        // Send a request for address and device identifier
+        char request[] = "REQ_ADDRESS\n";
+        write(serial_fd, request, strlen(request));
 
-    // Read the response containing the assigned address and device ID
-    char response[100];
-    read(serial_fd, response, sizeof(response));
+        // Read the response containing the assigned address and device ID
+        char response[100];
+        read(serial_fd, response, sizeof(response));
 
-    int device_id = atoi(strtok(response, "\n"));
+        int deviceID = atoi(strtok(response, "\n"));
 
-    // Add the new device to the list of assigned addresses
-    assigned_addresses[num_available_addresses].address = new_address;
-    assigned_addresses[num_available_addresses].device_id = device_id;
+        // Add the new device to the list of assigned addresses
+        assignedAddresses[numAvailableAddresses].address = newAddress;
+        assignedAddresses[numAvailableAddresses].device_id = deviceID;
+        numAvailableAddresses++;
 
-    num_available_addresses++;
+        // Get the next available address
+        newAddress = assignAddress(addressPool, &numAvailableAddresses);
+    }
 
-    // Get the next available address
-    new_address = assign_address();
-  }
+    // Polling logic to check device status
+    pollDevices(serial_fd, assignedAddresses, numAvailableAddresses);
 
-  // Polling logic to check device status
-  poll_devices(serial_fd);
+    // Data transmission logic
+    for (int i = 0; i < numAvailableAddresses; i++) {
+        sendData(serial_fd, assignedAddresses[i].address, 0xFF); // Example data payload
+    }
 
-  // Data transmission logic
-  for (int i = 0; i < num_available_addresses; i++) {
-    send_data(serial_fd, assigned_addresses[i].address, 0xFF); // Example data payload
-  }
+    // Close the serial port when done
+    close(serial_fd);
 
-  // Close the serial port when done
-  close(serial_fd);
-
-  return 0;
+    return 0;
 }
-

@@ -47,23 +47,23 @@ void send_data(int serial_fd, int address, int data) {
     write(serial_fd, packet, sizeof(packet));
 }
 
-int main() {
-    // Open the serial port
-    int serial_fd = open("/dev/ttyUSB0", O_RDWR);
+// Function to open and configure the serial port
+int openSerialPort(const char *portName, speed_t baudRate) {
+    int serial_fd = open(portName, O_RDWR);
     if (serial_fd == -1) {
         perror("Error opening serial port");
-        return 1;
+        exit(1);
     }
 
-    // Set serial port settings (assuming 8N1)
     struct termios tty;
-    memset(&tty, 0, sizeof(tty));
+    memset(&tty, 0, sizeof(tty);
     if (tcgetattr(serial_fd, &tty) != 0) {
         perror("Error from tcgetattr");
-        return 1;
+        exit(1);
     }
-    cfsetospeed(&tty, B115200);
-    cfsetispeed(&tty, B115200);
+
+    cfsetospeed(&tty, baudRate);
+    cfsetispeed(&tty, baudRate);
     tty.c_cflag |= (CLOCAL | CREAD);
     tty.c_cflag &= ~PARENB;
     tty.c_cflag &= ~CSTOPB;
@@ -72,12 +72,24 @@ int main() {
     tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
     tty.c_iflag &= ~(IXON | IXOFF | IXANY);
     tty.c_oflag &= ~OPOST;
+
     if (tcsetattr(serial_fd, TCSANOW, &tty) != 0) {
         perror("Error from tcsetattr");
-        return 1;
+        exit(1);
     }
 
-    // Address assignment logic for new devices
+    return serial_fd;
+}
+
+int main() {
+    // Open and configure the serial port
+    const char *portName = "/dev/ttyUSB0"; // Change to your port name
+    speed_t baudRate = B115200; // Change to your baud rate
+    int serial_fd = openSerialPort(portName, baudRate);
+
+    // Initialize the list of assigned addresses
+    int assigned_addresses[num_available_addresses];
+
     while (1) {
         // Wait for a request for address
         char request[100];
