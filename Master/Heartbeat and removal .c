@@ -117,7 +117,7 @@ int receiveAndProcessResponse(int uart_fd, char address) {
             responseBuffer[bytes] = '\0';
 
             // Check if the response contains status information
-            if (strstr(responseBuffer, "status:") != NULL) {
+            if (strstr(responseBuffer, "status:")   NULL) {
                 printf("Received status from device at address %c: %s\n", address, responseBuffer);
                 return 1; // Mark this device as responded
             }
