@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <time.h>
 
+
 // Define the UART device file and baud rate
 #define UART_DEVICE "/dev/ttyS0" // Change this to the appropriate UART device
 #define BAUD_RATE B115200        // Change this to your ESP32's baud rate
