@@ -71,7 +71,6 @@ void pollDevices(int serial_fd, struct AssignedAddress *assignedAddresses, int n
         char request[] = "REQ_STATUS\n";
         int address = assignedAddresses[i].address;
         write(serial_fd, request, strlen(request));
-
         // Read and process the response
         char response[100];
         read(serial_fd, response, sizeof(response));
@@ -89,7 +88,7 @@ int main() {
     const char *portName = "/dev/ttyUSB0"; // Change to your port name
     speed_t baudRate = B115200; // Change to your baud rate
     int serial_fd = setupSerialPort(portName, baudRate);
-
+    
     // Initialize the list of assigned addresses and device IDs
     struct AssignedAddress assignedAddresses[MAX_AVAILABLE_ADDRESSES];
     int addressPool[MAX_AVAILABLE_ADDRESSES] = {1, 2, 3, 4, 5};
